@@ -28,7 +28,7 @@ jobs:
         uses: golangci/golangci-lint-action@v3
         with:
           version: v1.53
-          args: --timeout=10m --fix
+          args: --timeout=10m --new
 
       - uses: dominikh/staticcheck-action@v1.3.0
         with:
