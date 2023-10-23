@@ -52,7 +52,7 @@ func AddSpadeTasks(ctx context.Context, requester string, replicasToTest map[int
 		//nolint:asasalint
 		tasks = append(tasks, t...)
 		//nolint:asasalint
-		results = append(results, r)
+		results = append(results, r...)
 	}
 
 	// Write resulting tasks and results to the DB
