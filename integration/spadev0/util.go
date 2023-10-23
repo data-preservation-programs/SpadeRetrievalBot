@@ -50,7 +50,7 @@ func AddSpadeTasks(ctx context.Context, requester string, replicasToTest map[int
 		t, r := prepareTasksForSP(ctx, requester, strSpid, ipInfo, replicas, locationResolver, *providerResolver)
 
 		//nolint:asasalint
-		tasks = append(tasks, t)
+		tasks = append(tasks, t...)
 		//nolint:asasalint
 		results = append(results, r)
 	}
