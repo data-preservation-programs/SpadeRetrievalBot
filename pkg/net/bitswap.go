@@ -198,7 +198,9 @@ func (c BitswapClient) SpadeTraversal(parent context.Context,
 
 		// Verify returned content hashes to the CID we're expecting
 		if !blk.Cid().Equals(cidToRetrieve) {
-			return task.NewErrorRetrievalResult(task.CIDMismatch, errors.Errorf("retrieved cid does not match requested: %s, %s", blk.Cid().String(), cidToRetrieve)), nil
+			return task.NewErrorRetrievalResult(task.CIDMismatch,
+				errors.Errorf("retrieved cid does not match requested: %s, %s",
+					blk.Cid().String(), cidToRetrieve)), nil
 		}
 
 		if i == maxTraverseDepth {
