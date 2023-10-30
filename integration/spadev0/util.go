@@ -89,9 +89,19 @@ func AddSpadeTasks(ctx context.Context, requester string, replicasToTest map[int
 	return nil
 }
 
-var spadev0Metadata map[string]string = map[string]string{
-	"retrieve_type":      string(task.Spade),
-	"max_traverse_depth": "3",
+var moduleMetadataMap = map[task.ModuleName]map[string]string{
+	task.GraphSync: {
+		"assume_label":  "true",
+		"retrieve_type": "root_block",
+	},
+	task.Bitswap: {
+		"retrieve_type":      string(task.Spade),
+		"max_traverse_depth": "3",
+	},
+	task.HTTP: {
+		"retrieve_type": string(task.Piece),
+		"retrieve_size": "1048576",
+	},
 }
 
 func prepareTasksForSP(
@@ -129,7 +139,7 @@ func prepareTasksForSP(
 		tasks = append(tasks, task.Task{
 			Requester: requester,
 			Module:    task.Bitswap,
-			Metadata:  spadev0Metadata,
+			Metadata:  moduleMetadataMap[task.Bitswap],
 			Provider: task.Provider{
 				ID:         spid.String(),
 				PeerID:     providerInfo.PeerId,
@@ -143,7 +153,29 @@ func prepareTasksForSP(
 				CID: document.OptionalDagRoot,
 			},
 			CreatedAt: time.Now().UTC(),
-			Timeout:   env.GetDuration(env.FilplusIntegrationTaskTimeout, 15*time.Second),
+			Timeout:   env.GetDuration(env.SpadeIntegrationTaskTimeout, 15*time.Second),
+		})
+	}
+
+	for _, document := range replicas {
+		tasks = append(tasks, task.Task{
+			Requester: requester,
+			Module:    task.HTTP,
+			Metadata:  moduleMetadataMap[task.HTTP],
+			Provider: task.Provider{
+				ID:         document.PieceCID,
+				PeerID:     providerInfo.PeerId,
+				Multiaddrs: convert.MultiaddrsBytesToStringArraySkippingError(providerInfo.Multiaddrs),
+				City:       location.City,
+				Region:     location.Region,
+				Country:    location.Country,
+				Continent:  location.Continent,
+			},
+			Content: task.Content{
+				CID: document.PieceCID,
+			},
+			CreatedAt: time.Now().UTC(),
+			Timeout:   env.GetDuration(env.SpadeIntegrationTaskTimeout, 15*time.Second),
 		})
 	}
 
@@ -160,43 +192,50 @@ func addErrorResults(
 	errorCode task.ErrorCode,
 	errorMessage string,
 ) []interface{} {
-	results = append(results, task.Result{
-		Task: task.Task{
-			Requester: requester,
-			Module:    "spadev0",
-			Metadata:  spadev0Metadata,
-			Provider: task.Provider{
-				ID:         spid,
-				PeerID:     providerInfo.PeerId,
-				Multiaddrs: convert.MultiaddrsBytesToStringArraySkippingError(providerInfo.Multiaddrs),
-				City:       location.City,
-				Region:     location.Region,
-				Country:    location.Country,
-				Continent:  location.Continent,
+	for module, metadata := range moduleMetadataMap {
+		newMetadata := make(map[string]string)
+		for k, v := range metadata {
+			newMetadata[k] = v
+		}
+		newMetadata["client"] = string(module)
+		results = append(results, task.Result{
+			Task: task.Task{
+				Requester: requester,
+				Module:    "spadev0",
+				Metadata:  newMetadata,
+				Provider: task.Provider{
+					ID:         spid,
+					PeerID:     providerInfo.PeerId,
+					Multiaddrs: convert.MultiaddrsBytesToStringArraySkippingError(providerInfo.Multiaddrs),
+					City:       location.City,
+					Region:     location.Region,
+					Country:    location.Country,
+					Continent:  location.Continent,
+				},
+				CreatedAt: time.Now().UTC(),
+				Timeout:   env.GetDuration(env.SpadeIntegrationTaskTimeout, 15*time.Second)},
+			Retriever: task.Retriever{
+				PublicIP:  ipInfo.IP,
+				City:      ipInfo.City,
+				Region:    ipInfo.Region,
+				Country:   ipInfo.Country,
+				Continent: ipInfo.Continent,
+				ASN:       ipInfo.ASN,
+				ISP:       ipInfo.ISP,
+				Latitude:  ipInfo.Latitude,
+				Longitude: ipInfo.Longitude,
+			},
+			Result: task.RetrievalResult{
+				Success:      false,
+				ErrorCode:    errorCode,
+				ErrorMessage: errorMessage,
+				TTFB:         0,
+				Speed:        0,
+				Duration:     0,
+				Downloaded:   0,
 			},
 			CreatedAt: time.Now().UTC(),
-			Timeout:   env.GetDuration(env.FilplusIntegrationTaskTimeout, 15*time.Second)},
-		Retriever: task.Retriever{
-			PublicIP:  ipInfo.IP,
-			City:      ipInfo.City,
-			Region:    ipInfo.Region,
-			Country:   ipInfo.Country,
-			Continent: ipInfo.Continent,
-			ASN:       ipInfo.ASN,
-			ISP:       ipInfo.ISP,
-			Latitude:  ipInfo.Latitude,
-			Longitude: ipInfo.Longitude,
-		},
-		Result: task.RetrievalResult{
-			Success:      false,
-			ErrorCode:    errorCode,
-			ErrorMessage: errorMessage,
-			TTFB:         0,
-			Speed:        0,
-			Duration:     0,
-			Downloaded:   0,
-		},
-		CreatedAt: time.Now().UTC(),
-	})
+		})
+	}
 	return results
 }
