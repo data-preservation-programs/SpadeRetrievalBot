@@ -90,10 +90,6 @@ func AddSpadeTasks(ctx context.Context, requester string, replicasToTest map[int
 }
 
 var moduleMetadataMap = map[task.ModuleName]map[string]string{
-	task.GraphSync: {
-		"assume_label":  "true",
-		"retrieve_type": "root_block",
-	},
 	task.Bitswap: {
 		"retrieve_type":      string(task.Spade),
 		"max_traverse_depth": "3",
