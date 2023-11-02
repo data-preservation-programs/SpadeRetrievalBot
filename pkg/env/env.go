@@ -26,6 +26,7 @@ const (
 	Longitude                   Key = "_LONGITUDE"
 	LotusAPIToken               Key = "LOTUS_API_TOKEN"
 	LotusAPIUrl                 Key = "LOTUS_API_URL"
+	MaxChallengesPerLevel       Key = "MAX_CHALLENGES_PER_LEVEL"
 	ProcessErrorInterval        Key = "PROCESS_ERROR_INTERVAL"
 	ProcessModules              Key = "PROCESS_MODULES"
 	ProviderCacheTTL            Key = "PROVIDER_CACHE_TTL"
