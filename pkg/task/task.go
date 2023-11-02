@@ -39,10 +39,9 @@ func (p Provider) GetPeerAddr() (peer.AddrInfo, error) {
 type ModuleName string
 
 const (
-	Stub      ModuleName = "stub"
-	GraphSync ModuleName = "graphsync"
-	HTTP      ModuleName = "http"
-	Bitswap   ModuleName = "bitswap"
+	Stub    ModuleName = "stub"
+	HTTP    ModuleName = "http"
+	Bitswap ModuleName = "bitswap"
 )
 
 type RetrieveType string

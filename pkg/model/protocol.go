@@ -15,11 +15,10 @@ type Protocol struct {
 type ProtocolName string
 
 const (
-	GraphSync ProtocolName = "GraphSync"
-	Bitswap   ProtocolName = "bitswap"
-	HTTP      ProtocolName = "http"
-	HTTPS     ProtocolName = "https"
-	Libp2p    ProtocolName = "libp2p"
-	WS        ProtocolName = "ws"
-	WSS       ProtocolName = "wss"
+	Bitswap ProtocolName = "bitswap"
+	HTTP    ProtocolName = "http"
+	HTTPS   ProtocolName = "https"
+	Libp2p  ProtocolName = "libp2p"
+	WS      ProtocolName = "ws"
+	WSS     ProtocolName = "wss"
 )
