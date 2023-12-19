@@ -4,6 +4,8 @@ run:
     - extern
     - integration/repdao
     - integration/repdao_dp
+  skip-files:
+    - pkg/net/host.go # this is failing for me because libp2p cannot be found on go1.20.1
 
 linters:
   enable-all: true

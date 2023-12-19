@@ -2,9 +2,12 @@ package net
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"math/rand"
 	"time"
 
+	"github.com/data-preservation-programs/RetrievalBot/pkg/env"
 	"github.com/data-preservation-programs/RetrievalBot/pkg/task"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -113,6 +116,7 @@ func (c BitswapClient) Retrieve(
 	parent context.Context,
 	target peer.AddrInfo,
 	cid cid.Cid) (*task.RetrievalResult, error) {
+	fmt.Println(cid)
 	logger := logging.Logger("bitswap_client").With("cid", cid).With("target", target)
 	network := bsnet.NewFromIpfsHost(c.host, SingleContentRouter{
 		AddrInfo: target,
@@ -173,7 +177,15 @@ func (c BitswapClient) SpadeTraversal(parent context.Context,
 	startingCid cid.Cid,
 	maxTraverseDepth uint) (*task.RetrievalResult, error) {
 	logger := logging.Logger("bitswap_client_spade").With("cid", startingCid).With("target", target)
-	cidToRetrieve := startingCid
+
+	maxChallengesPerLevel := env.GetInt(env.MaxChallengesPerLevel, 0)
+	if maxChallengesPerLevel <= 0 {
+		maxChallengesPerLevel = 1
+		logger.Infof("MaxChallengesPerLevel is <= 0. Using 1 challenge per level")
+	}
+
+	cidsToRetrieve := initializeCidsToRetrieve(maxChallengesPerLevel, startingCid)
+	nextLayerIndexes := make([]datamodel.Link, 0, int(math.Pow(2, float64(maxTraverseDepth))))
 
 	// Initialize hosts and clients required to do all the retrieval tests
 	network := bsnet.NewFromIpfsHost(c.host, SingleContentRouter{
@@ -187,58 +199,81 @@ func (c BitswapClient) SpadeTraversal(parent context.Context,
 	startTime := time.Now()
 
 	i := uint(0)
+	var blk blocks.Block
 	for {
-		// Retrieval
-		logger.Infof("retrieving %s\n", cidToRetrieve.String())
-		blk, err := c.RetrieveBlock(parent, target, network, bswap, cidToRetrieve)
+		for j, cidToRetrieve := range cidsToRetrieve {
+			// Retrieval
+			logger.Infof("retrieving %s\n", cidToRetrieve.String())
+			blk, err := c.RetrieveBlock(parent, target, network, bswap, cidToRetrieve)
 
-		if err != nil {
-			return task.NewErrorRetrievalResultWithErrorResolution(task.RetrievalFailure, err), nil
+			if err != nil {
+				return task.NewErrorRetrievalResultWithErrorResolution(task.RetrievalFailure, err), nil
+			}
+
+			// Verify returned content hashes to the CID we're expecting
+			if !blk.Cid().Equals(cidToRetrieve) {
+				return task.NewErrorRetrievalResult(task.CIDMismatch,
+					errors.Errorf("retrieved cid does not match requested: %s, %s",
+						blk.Cid().String(), cidToRetrieve)), nil
+			}
+
+			// Wait until we are at max depth and tried all the challenges
+			if i == maxTraverseDepth && j == len(cidsToRetrieve)-1 {
+				var size = int64(len(blk.RawData()))
+				elapsed := time.Since(startTime)
+				logger.With("size", size).With("elapsed", elapsed).Info("Retrieved block")
+
+				// we've reached the requested depth of the tree
+				return task.NewSuccessfulRetrievalResult(elapsed, size, elapsed), nil
+			}
+
+			// if not at bottom of the tree, keep going down the links until we reach it or hit a dead end
+			links, err := FindLinks(parent, blk)
+			if err != nil {
+				return task.NewErrorRetrievalResultWithErrorResolution(task.CannotDecodeLinks, err), nil
+			}
+
+			logger.Debugf("cid %s has %d links\n", cidToRetrieve.String(), len(links))
+
+			nextLayerIndexes = append(nextLayerIndexes, links...)
 		}
 
-		// Verify returned content hashes to the CID we're expecting
-		if !blk.Cid().Equals(cidToRetrieve) {
-			return task.NewErrorRetrievalResult(task.CIDMismatch,
-				errors.Errorf("retrieved cid does not match requested: %s, %s",
-					blk.Cid().String(), cidToRetrieve)), nil
-		}
-
-		if i == maxTraverseDepth {
+		if len(nextLayerIndexes) == 0 {
 			var size = int64(len(blk.RawData()))
 			elapsed := time.Since(startTime)
 			logger.With("size", size).With("elapsed", elapsed).Info("Retrieved block")
 
-			// we've reached the requested depth of the tree
 			return task.NewSuccessfulRetrievalResult(elapsed, size, elapsed), nil
 		}
 
-		// if not at bottom of the tree, keep going down the links until we reach it or hit a dead end
-		links, err := FindLinks(parent, blk)
-		if err != nil {
-			return task.NewErrorRetrievalResultWithErrorResolution(task.CannotDecodeLinks, err), nil
+		// Clear out cids list to prevent resizing array
+		cidsToRetrieve = cidsToRetrieve[:0]
+
+		// Randomize a slice so we can find the next cids to challenge
+		rand.Shuffle(len(nextLayerIndexes), func(i, j int) {
+			nextLayerIndexes[i], nextLayerIndexes[j] = nextLayerIndexes[j], nextLayerIndexes[i]
+		})
+
+		for j := 0; j < int(math.Min(float64(maxChallengesPerLevel), float64(len(nextLayerIndexes)))); j++ {
+			cid, err := cid.Parse(nextLayerIndexes[j].String())
+			if err != nil {
+				return task.NewErrorRetrievalResultWithErrorResolution(task.CIDCodecNotSupported, err), nil
+			}
+			cidsToRetrieve = append(cidsToRetrieve, cid)
 		}
 
-		logger.Debugf("cid %s has %d links\n", cidToRetrieve.String(), len(links))
+		// Clear out nextLayerIndexes list to help prevent resizing array
+		nextLayerIndexes = nextLayerIndexes[:0]
 
-		if len(links) == 0 {
-			var size = int64(len(blk.RawData()))
-			elapsed := time.Since(startTime)
-			logger.With("size", size).With("elapsed", elapsed).Info("Retrieved block")
-
-			return task.NewSuccessfulRetrievalResult(elapsed, size, elapsed), nil
-		}
-
-		// randomly pick a link to go down
-		//nolint:all we don't need crypto secured random numbers
-		nextIndex := rand.Intn(len(links))
-
-		cidToRetrieve, err = cid.Parse(links[nextIndex].String())
-		if err != nil {
-			return task.NewErrorRetrievalResultWithErrorResolution(task.CIDCodecNotSupported, err), nil
-		}
-
-		i++ // To the next layer of the tree
+		// To the next layer of the tree
+		i++
 	}
+}
+
+func initializeCidsToRetrieve(maxChallengesPerLevel int, startingCid cid.Cid) []cid.Cid {
+	cidsToRetrieve := make([]cid.Cid, 0, maxChallengesPerLevel)
+	cidsToRetrieve = append(cidsToRetrieve, startingCid)
+	return cidsToRetrieve
 }
 
 // Returns the raw block data, the links, and error if any

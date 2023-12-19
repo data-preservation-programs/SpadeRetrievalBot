@@ -1,0 +1,6 @@
+{"RecordType":"DagAggregatePreamble","Version":1}
+{"RecordType":"DagAggregateSummary","EntryCount":4,"EntriesSortedBy":"DagCidV1","Description":"Aggregate of non-related DAGs, produced by github.com/filecoin-project/go-dagaggregator-unixfs"}
+{"RecordType":"DagAggregateEntry","DagCidV1":"bafkreialad2qaplrgjs2x2rs4fycwmwmpmocantoho3doxulmbmlrg6qea","PathPrefixes":["baf...ea","baf...6qea"],"PathIndexes":[1,0,0]}
+{"RecordType":"DagAggregateEntry","DagCidV1":"bafkreiarcpog7fgb3cvs4iznh6jcqtxgyyk5rbsmk4dvxuty5tylof6qea","PathPrefixes":["baf...ea","baf...6qea"],"PathIndexes":[1,0,1]}
+{"RecordType":"DagAggregateEntry","DagCidV1":"bafkreihjji2ny4zwyh7ubc3bmdb5tj455vi5fhsbwf2uvcw6l75z446qea","PathPrefixes":["baf...ea","baf...6qea"],"PathIndexes":[1,0,2]}
+{"RecordType":"DagAggregateEntry","DagCidV1":"bafybeibhbx3y6tnn7q4gpsous6apnobft5jybvroiepdsmvps2lmycjjxu","DagCidV0":"QmQy6xmJhrcC5QLboAcGFcAE1tC8CrwDVkrHdEYJkLscrQ","DagSize":42,"NodeCount":1,"PathPrefixes":["baf...xu","baf...jjxu"],"PathIndexes":[2,0,0]}
